@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #0066cc;
+      --secondary: #0052a3;
+      --bg: #f0f2f5;
+      --user-bubble: var(--primary);
+      --bot-bubble: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .avatar {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+
+    .header-titles { flex: 1; min-width: 0; }
+    header h1 { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+    header p  { font-size: 0.75rem; opacity: 0.85; margin-top: 1px; }
+
+    /* ── Endpoint toggle ────────────────────── */
+    .endpoint-toggle {
+      display: flex;
+      background: rgba(0,0,0,0.2);
+      border-radius: 24px;
+      padding: 3px;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .ep-btn {
+      border: none;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .ep-btn.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    .ep-btn:not(.active):hover {
+      background: rgba(255,255,255,0.15);
+      color: white;
+    }
+
+    /* ── Model selector ─────────────────────── */
+    .model-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .model-selector label { font-size: 0.72rem; opacity: 0.85; white-space: nowrap; }
+
+    #model-select {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 20px;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 5px 28px 5px 12px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='white' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      max-width: 200px;
+      transition: background-color 0.2s;
+    }
+
+    #model-select:hover { background-color: rgba(255,255,255,0.25); }
+    #model-select option { background: #1e293b; color: white; font-weight: normal; }
+
+    /* ── Active endpoint banner ─────────────── */
+    #endpoint-banner {
+      text-align: center;
+      padding: 6px 16px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      flex-shrink: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    #endpoint-banner.plain {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    #endpoint-banner.guarded {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    /* ── Messages area ──────────────────────── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      max-width: 75%;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.bot  { align-self: flex-start; }
+
+    .msg-icon {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+
+    .message.bot .msg-icon  { background: var(--primary); color: white; }
+    .message.user .msg-icon { background: #d1d5db; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      box-shadow: var(--shadow);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message.user .bubble {
+      background: var(--user-bubble);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot .bubble {
+      background: var(--bot-bubble);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* endpoint label on bot bubble */
+    .bubble-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      opacity: 0.5;
+    }
+
+    /* ── Typing indicator ───────────────────── */
+    .typing .bubble {
+      display: flex; gap: 5px; align-items: center;
+      padding: 14px 18px;
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      background: #9ca3af; border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-6px); }
+    }
+
+    /* ── Input area ─────────────────────────── */
+    #input-area {
+      padding: 14px 16px;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    #user-input {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 24px;
+      padding: 10px 16px;
+      font-size: 0.92rem;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      overflow-y: auto;
+      line-height: 1.4;
+      transition: border-color 0.2s;
+    }
+
+    #user-input:focus { border-color: var(--primary); }
+
+    #send-btn {
+      width: 42px; height: 42px;
+      border-radius: 50%; border: none;
+      background: var(--primary); color: white;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    #send-btn:hover    { background: var(--secondary); }
+    #send-btn:active   { transform: scale(0.94); }
+    #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #clear-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    #clear-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+    /* ── Error toast ────────────────────────── */
+    #error-toast {
+      display: none;
+      background: #fee2e2; color: #dc2626;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 0 16px 8px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="avatar">🤖</div>
+  <div class="header-titles">
+    <h1 id="header-title">AI Assistant</h1>
+    <p id="header-subtitle">How can I help you today?</p>
+  </div>
+
+  <!-- Endpoint A/B toggle -->
+  <div class="endpoint-toggle">
+    <button class="ep-btn active" data-endpoint="A" id="btn-a">Plain</button>
+    <button class="ep-btn"        data-endpoint="B" id="btn-b">Guarded</button>
+  </div>
+
+  <!-- Model dropdown -->
+  <div class="model-selector">
+    <label for="model-select">Model:</label>
+    <select id="model-select">
+      <option value="">Loading...</option>
+    </select>
+  </div>
+</header>
+
+<!-- Active endpoint indicator -->
+<div id="endpoint-banner" class="plain">
+  ⚠️ Plain Assistant — no guardrails active
+</div>
+
+<div id="messages"></div>
+<div id="error-toast"></div>
+
+<div id="input-area">
+  <button id="clear-btn" title="Clear conversation">🗑 Clear</button>
+  <textarea id="user-input" rows="1" placeholder="Type a message..."></textarea>
+  <button id="send-btn" title="Send">➤</button>
+</div>
+
+<script>
+  let conversationHistory = [];
+  let isLoading = false;
+  let activeEndpoint = 'A';
+  let endpointLabels = { A: 'Plain Assistant', B: 'Guarded Assistant' };
+
+  // ── Load config then models ────────────────────────────────────────────────
+  async function loadConfig() {
+    try {
+      const res = await fetch('/api/config');
+      const cfg = await res.json();
+
+      document.title = cfg.title;
+      document.getElementById('header-title').textContent = cfg.title;
+      document.getElementById('header-subtitle').textContent = cfg.subtitle;
+
+      document.documentElement.style.setProperty('--primary', cfg.primaryColor);
+      document.documentElement.style.setProperty('--secondary', cfg.secondaryColor);
+      document.documentElement.style.setProperty('--user-bubble', cfg.primaryColor);
+
+      // Apply endpoint labels from server config
+      endpointLabels.A = cfg.endpointALabel;
+      endpointLabels.B = cfg.endpointBLabel;
+      document.getElementById('btn-a').textContent = cfg.endpointALabel;
+      document.getElementById('btn-b').textContent = cfg.endpointBLabel;
+
+      updateBanner();
+      await loadModels();
+
+    } catch (e) {
+      console.error('Failed to load config:', e);
+    }
+  }
+
+  async function loadModels() {
+    const select = document.getElementById('model-select');
+    const prevSelected = select.value;
+    select.innerHTML = '<option value="">Loading...</option>';
+    try {
+      const res = await fetch(`/api/models?endpoint=${activeEndpoint}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.models?.length) {
+        select.innerHTML = '<option value="">No models found</option>';
+        return;
+      }
+
+      select.innerHTML = data.models
+        .map(m => `<option value="${m}"${m === prevSelected ? ' selected' : ''}>${m}</option>`)
+        .join('');
+
+      // If previous selection not in new list, select first
+      if (prevSelected && !data.models.includes(prevSelected)) {
+        select.selectedIndex = 0;
+      }
+
+    } catch (e) {
+      console.error('Failed to load models:', e);
+      select.innerHTML = '<option value="">Error loading models</option>';
+    }
+  }
+
+  // ── Endpoint toggle ────────────────────────────────────────────────────────
+  function updateBanner() {
+    const banner = document.getElementById('endpoint-banner');
+    if (activeEndpoint === 'A') {
+      banner.className = 'plain';
+      banner.textContent = `⚠️ ${endpointLabels.A} — no guardrails active`;
+    } else {
+      banner.className = 'guarded';
+      banner.textContent = `✅ ${endpointLabels.B} — guardrails active`;
+    }
+  }
+
+  document.querySelectorAll('.ep-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeEndpoint = btn.dataset.endpoint;
+      document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateBanner();
+      loadModels();
+      // Clear conversation when switching so context doesn't bleed across endpoints
+      conversationHistory = [];
+      document.getElementById('messages').innerHTML = '';
+    });
+  });
+
+  // ── Render helpers ─────────────────────────────────────────────────────────
+  function appendMessage(role, text, endpointLabel) {
+    const container = document.getElementById('messages');
+    const wrapper = document.createElement('div');
+    wrapper.className = `message ${role}`;
+
+    const icon = document.createElement('div');
+    icon.className = 'msg-icon';
+    icon.textContent = role === 'user' ? '🧑' : '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    // Show which endpoint answered on bot messages
+    if (role === 'bot' && endpointLabel) {
+      const label = document.createElement('div');
+      label.className = 'bubble-label';
+      label.textContent = endpointLabel;
+      bubble.appendChild(label);
+    }
+
+    const textNode = document.createTextNode(text);
+    bubble.appendChild(textNode);
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(bubble);
+    container.appendChild(wrapper);
+    container.scrollTop = container.scrollHeight;
+    return wrapper;
+  }
+
+  function showTyping() {
+    const container = document.getElementById('messages');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message bot typing';
+    wrapper.id = 'typing-indicator';
+
+    const icon = document.createElement('div');
+    icon.className = 'msg-icon';
+    icon.textContent = '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(bubble);
+    container.appendChild(wrapper);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  function showError(msg) {
+    const toast = document.getElementById('error-toast');
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 5000);
+  }
+
+  // ── Send message ───────────────────────────────────────────────────────────
+  async function sendMessage() {
+    const input = document.getElementById('user-input');
+    const text = input.value.trim();
+    if (!text || isLoading) return;
+
+    const selectedModel = document.getElementById('model-select').value;
+    const endpoint = activeEndpoint;
+    const label = endpointLabels[endpoint];
+
+    input.value = '';
+    input.style.height = 'auto';
+    isLoading = true;
+    document.getElementById('send-btn').disabled = true;
+
+    appendMessage('user', text);
+    conversationHistory.push({ role: 'user', content: text });
+    showTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: conversationHistory,
+          model: selectedModel,
+          endpoint,
+        }),
+      });
+
+      const data = await res.json();
+      removeTyping();
+
+      if (!res.ok) {
+        showError(data.error || 'Something went wrong.');
+      } else {
+        appendMessage('bot', data.reply, label);
+        conversationHistory.push({ role: 'assistant', content: data.reply });
+      }
+
+    } catch (err) {
+      removeTyping();
+      showError('Network error — is the server running?');
+    }
+
+    isLoading = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+
+  // ── Clear ──────────────────────────────────────────────────────────────────
+  function clearConversation() {
+    conversationHistory = [];
+    document.getElementById('messages').innerHTML = '';
+  }
+
+  // ── Auto-resize textarea ───────────────────────────────────────────────────
+  const textarea = document.getElementById('user-input');
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  });
+
+  // ── Events ─────────────────────────────────────────────────────────────────
+  document.getElementById('send-btn').addEventListener('click', sendMessage);
+  document.getElementById('clear-btn').addEventListener('click', clearConversation);
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  loadConfig();
+  textarea.focus();
+</script>
+</body>
+</html>

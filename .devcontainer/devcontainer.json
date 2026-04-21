@@ -1,0 +1,24 @@
+{
+  "name": "Chatbot Demo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Chatbot",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "npm install && cp -n .env.example .env || true",
+  "postStartCommand": "echo 'Run: npm run dev'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
